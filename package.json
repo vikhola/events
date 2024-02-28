@@ -1,0 +1,48 @@
+{
+  "name": "@vikhola/events",
+  "version": "1.0.0",
+  "description": "Provides simple and modern async event emitter",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vikhola/events"
+  },
+  "homepage": "https://github.com/vikhola/events",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+		"event",
+		"emitter",
+		"eventemitter",
+		"events",
+		"async",
+		"emit",
+		"on",
+		"once",
+		"off",
+		"listener",
+		"subscribe",
+		"unsubscribe",
+		"pubsub",
+		"tiny",
+		"addlistener",
+		"addeventlistener",
+		"dispatch",
+		"dispatcher",
+		"observer",
+		"trigger",
+		"await",
+		"promise",
+		"typescript",
+		"ts",
+		"typed"
+	],
+  "author": "<sabaziosd@proton.me> (https://github.com/SabaziosD)",
+  "license": "MIT",
+  "types": "./index.d.ts"
+}
