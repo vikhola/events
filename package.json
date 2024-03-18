@@ -1,6 +1,6 @@
 {
   "name": "@vikhola/events",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Provides simple and modern async event emitter",
   "main": "index.js",
   "directories": {

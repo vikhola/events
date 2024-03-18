@@ -79,6 +79,30 @@ describe('Listener test', function() {
             assert.strictEqual(listener.mock.callCount(), 0)
         })
 
+        it('should handle synchronous error rejection', async function(t) {
+            const aError = new Error
+            const listener = t.mock.fn(_ => { throw aError })
+            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
+            const aListener = new Listener(new Collection(), listener)
+
+            await aListener.notify(null, null, callback)
+
+            assert.strictEqual(listener.mock.callCount(), 1)
+            assert.strictEqual(callback.mock.callCount(), 1)
+        })
+
+        it('should handle asynchronous error rejection', async function(t) {
+            const aError = new Error
+            const listener = t.mock.fn(_ => { return Promise.reject(aError) })
+            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
+            const aListener = new Listener(new Collection(), listener)
+
+            await aListener.notify(null, null, callback)
+
+            assert.strictEqual(listener.mock.callCount(), 1)
+            assert.strictEqual(callback.mock.callCount(), 1)
+        })
+
     })
 
 })
@@ -97,6 +121,30 @@ describe('OnceListener test', function() {
             aListener.notify(null, null, t.mock.fn())
         
             assert.strictEqual(remove.mock.callCount(), 1)
+        })
+
+        it('should handle synchronous error rejection', async function(t) {
+            const aError = new Error
+            const listener = t.mock.fn(_ => { throw aError })
+            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
+            const aListener = new OnceListener(new Collection(), listener)
+
+            await aListener.notify(null, null, callback)
+
+            assert.strictEqual(listener.mock.callCount(), 1)
+            assert.strictEqual(callback.mock.callCount(), 1)
+        })
+
+        it('should handle asynchronous error rejection', async function(t) {
+            const aError = new Error
+            const listener = t.mock.fn(_ => { return Promise.reject(aError) })
+            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
+            const aListener = new OnceListener(new Collection(), listener)
+
+            await aListener.notify(null, null, callback)
+
+            assert.strictEqual(listener.mock.callCount(), 1)
+            assert.strictEqual(callback.mock.callCount(), 1)
         })
 
     })
