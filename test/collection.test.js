@@ -41,7 +41,7 @@ describe('Collection test', function() {
             assert.deepEqual(aCollection.entries(), [ aListener ])
         })
 
-        it('should add a listener to the collection based on his priority', function(t) {
+        it('should add a listener to the collection based on its priority', function(t) {
             const aListenerOne = new Listener(t.mock.fn(), 5)
             const aListenerTwo = new Listener(t.mock.fn(), 10)
             const aCollection = new Collection()

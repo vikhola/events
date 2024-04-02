@@ -213,7 +213,7 @@ describe('EventEmitter test', function(t) {
             assert.deepStrictEqual(aEventEmitter.eventNames(), [])
         })
 
-        it('should return empty array if no events is attached to the emitter and his origin', function(t) {
+        it('should return empty array if no events is attached to the emitter and its origin', function(t) {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
@@ -230,7 +230,7 @@ describe('EventEmitter test', function(t) {
             assert.deepStrictEqual(aEventEmitter.eventNames(), [ 'foo', 'bar' ])
         })
 
-        it('should return events attached to the emitter and his origin', function() {
+        it('should return events attached to the emitter and its origin', function() {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
@@ -254,7 +254,7 @@ describe('EventEmitter test', function(t) {
             assert.deepStrictEqual(aEventEmitter.listeners('foo'), [])
         })
 
-        it('should return empty array if there are no listeners attached to the event at the emitter and his origin', function(t) {
+        it('should return empty array if there are no listeners attached to the event at the emitter and its origin', function(t) {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             assert.deepStrictEqual(aEventEmitterTwo.listeners('foo'), [])
@@ -268,7 +268,7 @@ describe('EventEmitter test', function(t) {
             assert.deepEqual(aEventEmitter.listeners('foo'), aListeners)
         })
 
-        it('should return listeners attached to the event at the emitter and his origin', function(t) {
+        it('should return listeners attached to the event at the emitter and its origin', function(t) {
             const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
@@ -289,7 +289,7 @@ describe('EventEmitter test', function(t) {
             assert.deepEqual(aEventEmitter.listeners('foo'), aListeners.reverse())
         })
 
-        it('should return listeners attached to the event at the emitter and his origin sorted by their priority', function(t) {
+        it('should return listeners attached to the event at the emitter and its origin sorted by their priority', function(t) {
             const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
@@ -311,7 +311,7 @@ describe('EventEmitter test', function(t) {
             assert.deepStrictEqual(aEventEmitter.listenerCount('foo'), 0)
         })
 
-        it('should return 0 if there are no listeners attached to the event at the emitter and his origin', function(t) {
+        it('should return 0 if there are no listeners attached to the event at the emitter and its origin', function(t) {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
@@ -327,7 +327,7 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.listenerCount('foo'), 9)
         })
 
-        it('should return count of listeners attached to the event at the emitter and his origin', function(t) {
+        it('should return count of listeners attached to the event at the emitter and its origin', function(t) {
             const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
@@ -349,7 +349,7 @@ describe('EventEmitter test', function(t) {
             assert.deepEqual(aEventEmitter.rawListeners('foo'), [])
         })
 
-        it('should return empty array if no listeners attached to the event at the emitter and his origin', function(t) {
+        it('should return empty array if no listeners attached to the event at the emitter and its origin', function(t) {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
@@ -365,7 +365,7 @@ describe('EventEmitter test', function(t) {
             assert.deepEqual(aEventEmitter.rawListeners('foo').map(listener => listener.listener), aListeners)
         })
 
-        it('should return raw listeners attached to the event at the emitter and his origin', function(t) {
+        it('should return raw listeners attached to the event at the emitter and its origin', function(t) {
             const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
@@ -388,7 +388,7 @@ describe('EventEmitter test', function(t) {
             assert.deepEqual(aEventEmitter.rawListeners('foo').map(listener => listener.priority), [ 8, 7, 6, 5, 4, 3, 2, 1, 0 ])
         })
 
-        it('should return listeners attached to the event at the emitter and his origin sorted by their priority', function(t) {
+        it('should return listeners attached to the event at the emitter and its origin sorted by their priority', function(t) {
             const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
@@ -464,12 +464,12 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.emit('event', payload), false)
         })
 
-        it('should call listeners with provided arguments and with emitter as this', function(t) {
+        it('should call listeners with provided arguments and with emitter as tits', function(t) {
             const payload = Symbol('args')
             const aEventEmitter = new EventEmitter()
             const aListener = t.mock.fn(function (arg) {
                 assert.strictEqual(arg, payload)
-                assert.strictEqual(this, aEventEmitter)
+                assert.strictEqual(tits, aEventEmitter)
             })
 
             aEventEmitter.on('event', aListener).emit('event', payload)
@@ -482,7 +482,7 @@ describe('EventEmitter test', function(t) {
             const aEventEmitter = new EventEmitter()
             const aListener = t.mock.fn(function (arg) {
                 assert.strictEqual(arg, payload)
-                assert.strictEqual(this, aEventEmitter)
+                assert.strictEqual(tits, aEventEmitter)
             })
 
             aEventEmitter.on('event', aListener, { once: true })
