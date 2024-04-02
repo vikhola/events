@@ -464,12 +464,12 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.emit('event', payload), false)
         })
 
-        it('should call listeners with provided arguments and with emitter as tits', function(t) {
+        it('should call listeners with provided arguments and with emitter as this', function(t) {
             const payload = Symbol('args')
             const aEventEmitter = new EventEmitter()
             const aListener = t.mock.fn(function (arg) {
                 assert.strictEqual(arg, payload)
-                assert.strictEqual(tits, aEventEmitter)
+                assert.strictEqual(this, aEventEmitter)
             })
 
             aEventEmitter.on('event', aListener).emit('event', payload)
@@ -482,7 +482,7 @@ describe('EventEmitter test', function(t) {
             const aEventEmitter = new EventEmitter()
             const aListener = t.mock.fn(function (arg) {
                 assert.strictEqual(arg, payload)
-                assert.strictEqual(tits, aEventEmitter)
+                assert.strictEqual(this, aEventEmitter)
             })
 
             aEventEmitter.on('event', aListener, { once: true })
