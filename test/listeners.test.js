@@ -1,155 +1,113 @@
 const assert = require('node:assert');
 const { describe, it } = require('node:test');
-const { Listener, OnceListener } = require('../lib/listeners.js')
+const { Wrap, Listener, OnceListener } = require('../lib/listeners.js')
 
-class Collection {
+class EventEmitterMock {
 
-    constructor(has = true) {
-        this._has = Boolean(has)
-    }
-
-    has() {
-        return this._has
-    }
-
-    delete() {
-
-    }
+    off() {}
 
 }
 
-describe('Listener test', function() {
+describe('Wrap test', function() {
 
+    it('should return Listener with frozen priority and listener', function(t) {
+        const listener = t.mock.fn()
+        const aListener = Wrap(new EventEmitterMock, 'foo', listener, 5) 
 
-    describe('"callback" field', function() {
-
-        it('should return listener callback', function(t) {
-            const aCallback = t.mock.fn()
-            const aListener = new Listener(new Collection(), aCallback)
-
-            assert.deepStrictEqual(aListener.callback, aCallback)
-        })
-
+        assert.strictEqual(typeof aListener, 'function')
+        assert.strictEqual(aListener.listener, listener)
+        assert.strictEqual(aListener.priority, 5)
+        assert.strictEqual(Object.isFrozen(aListener), true)
     })
 
-    describe('"notify()" method', function() {
+    it('should return OnceListener with frozen priority and listener when once is set to true', function(t) {
+        const listener = t.mock.fn()
+        const aListener = Wrap(new EventEmitterMock, 'foo', listener, 5, true) 
 
-        it('should call listener function and call passed callback', function(t) {
-            const listener = t.mock.fn()
-            const callback = t.mock.fn()
-            const aListener = new Listener(new Collection(), listener)
+        assert.strictEqual(typeof aListener, 'function')
 
-            aListener.notify(null, null, callback)
+        aListener(null, null)
+        aListener(null, null)
+        aListener(null, null)
 
-            assert.strictEqual(listener.mock.callCount(), 1)
-            assert.strictEqual(callback.mock.callCount(), 1)
-        })
+        assert.strictEqual(aListener.listener, listener)
+        assert.strictEqual(aListener.priority, 5)
+        assert.strictEqual(Object.isFrozen(aListener), true)
+        assert.strictEqual(listener.mock.callCount(), 1)
+    })
 
-        it('should call async listener function and call callback when it resolves', async function(t) {
-            const listener = t.mock.fn(_ => new Promise(resolve => setImmediate(resolve)))
-            const callback = t.mock.fn()
-            const aListener = new Listener(new Collection(), listener)
+})
 
-            aListener.notify(null, null, callback)
+describe('Listener test', function() {
 
-            await new Promise(resolve => setImmediate(resolve))
+    it('should call listener function with arguments and return its result', function(t) {
+        const result = Symbol()
+        const listener = t.mock.fn(arg => arg)
+        const aListener = Listener.bind({ emitter: new EventEmitterMock(), listener: listener } )
 
-            assert.strictEqual(listener.mock.callCount(), 1)
-            assert.strictEqual(callback.mock.callCount(), 1)
-        })
+        assert.strictEqual(aListener(null, [ result ]), result)
+        assert.strictEqual(listener.mock.callCount(), 1)
+    })
 
-        it('should call listener with "this" bounded to the emitter',  async function(t) {
-            const listener = t.mock.fn(function() { assert.strictEqual(this, aEmitter) })
+    it('should call listener with "this" bounded to the emitter', function(t) {
+        const aEmitter = { foo: 'bar' }
+        const listener = t.mock.fn(function() { assert.strictEqual(this, aEmitter) })
+        const aListener = Listener.bind({ emitter: new EventEmitterMock(), listener: listener } )
 
-            const aEmitter = { foo: 'bar' }
-            const aListener = new Listener(new Collection(), listener)
+        aListener(aEmitter, null)
 
-            aListener.notify(aEmitter, null, t.mock.fn())
-        })
-
-        it('should not call listener function if collection does not have it', async function(t) {
-            const listener = t.mock.fn()
-            const aCollection = new Collection(false)
-            const aListener = new Listener(aCollection, listener)
-        
-            aListener.notify(null, null, t.mock.fn())
-        
-            await new Promise(resolve => setImmediate(resolve))
-        
-            assert.strictEqual(listener.mock.callCount(), 0)
-        })
-
-        it('should handle synchronous error rejection', async function(t) {
-            const aError = new Error
-            const listener = t.mock.fn(_ => { throw aError })
-            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
-            const aListener = new Listener(new Collection(), listener)
-
-            await aListener.notify(null, null, callback)
-
-            assert.strictEqual(listener.mock.callCount(), 1)
-            assert.strictEqual(callback.mock.callCount(), 1)
-        })
-
-        it('should handle asynchronous error rejection', async function(t) {
-            const aError = new Error
-            const listener = t.mock.fn(_ => { return Promise.reject(aError) })
-            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
-            const aListener = new Listener(new Collection(), listener)
-
-            await aListener.notify(null, null, callback)
-
-            assert.strictEqual(listener.mock.callCount(), 1)
-            assert.strictEqual(callback.mock.callCount(), 1)
-        })
-
+        assert.strictEqual(listener.mock.callCount(), 1)
     })
 
 })
 
 describe('OnceListener test', function() {
 
-    describe('"notify()" method', function() {
+    it('should call listener function', function(t) {
+        const result = Symbol()
+        const listener = t.mock.fn(arg => arg)
+        const aListener = OnceListener.bind({ emitter: new EventEmitterMock(), listener: listener } )
 
-        it('should remove once listener from collection after first call', async function(t) {
-            const listener = t.mock.fn()
-            const aCollection = new Collection()
-            const aListener = new OnceListener(aCollection, listener)
-        
-            const remove = t.mock.method(aCollection, "delete", callback => assert.strictEqual(callback, listener))
-
-            aListener.notify(null, null, t.mock.fn())
-        
-            assert.strictEqual(remove.mock.callCount(), 1)
-        })
-
-        it('should handle synchronous error rejection', async function(t) {
-            const aError = new Error
-            const listener = t.mock.fn(_ => { throw aError })
-            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
-            const aListener = new OnceListener(new Collection(), listener)
-
-            await aListener.notify(null, null, callback)
-
-            assert.strictEqual(listener.mock.callCount(), 1)
-            assert.strictEqual(callback.mock.callCount(), 1)
-        })
-
-        it('should handle asynchronous error rejection', async function(t) {
-            const aError = new Error
-            const listener = t.mock.fn(_ => { return Promise.reject(aError) })
-            const callback = t.mock.fn(error => assert.strictEqual(error, aError))
-            const aListener = new OnceListener(new Collection(), listener)
-
-            await aListener.notify(null, null, callback)
-
-            assert.strictEqual(listener.mock.callCount(), 1)
-            assert.strictEqual(callback.mock.callCount(), 1)
-        })
-
+        assert.strictEqual(aListener(null, [ result ]), result)
+        assert.strictEqual(listener.mock.callCount(), 1)
     })
 
+    it('should call listener with "this" bounded to the emitter', function(t) {
+        const aEmitter = { foo: 'bar' }
+        const listener = t.mock.fn(function() { assert.strictEqual(this, aEmitter) })
+        const aListener = OnceListener.bind({ emitter: new EventEmitterMock(), listener: listener } )
+
+        aListener(aEmitter, null)
+
+        assert.strictEqual(listener.mock.callCount(), 1)
+    })
+
+    it('should call listener function only once', async function(t) {
+        const listener = t.mock.fn()
+        const aEventEmitterMock = new EventEmitterMock(false)
+        const aListener = OnceListener.bind({ emitter: aEventEmitterMock,  event: "foo", listener: listener } )
+    
+        aListener(null, null)
+        aListener(null, null)
+        aListener(null, null)
+    
+        assert.strictEqual(listener.mock.callCount(), 1)
+    })
+
+    it('should remove listener from the emitter by event after first call', function(t) {
+        const event = 'foo'
+        const listener = t.mock.fn()
+        const aEventEmitterMock = new EventEmitterMock()
+        const aListener = OnceListener.bind({ emitter: aEventEmitterMock, event: "foo", listener: listener } )
+    
+        const remove = t.mock.method(aEventEmitterMock, "off", (name, callback) => {
+            assert.strictEqual(name, event)
+            assert.strictEqual(callback, listener)
+        })
+
+        aListener(null, null)
+    
+        assert.strictEqual(remove.mock.callCount(), 1)
+    })
 
 })
-
-

@@ -1,5 +1,7 @@
 declare module "@vikhola/events" {
 
+    import { EventEmitter as NodeEventEmitter }  from "events"
+
     type TListener = (this: IEventEmitter, ...args: any[]) => any
     type TListenerEntry = { listener: TListener, priority: number }
     type TNewEventListener = (eventName: string | symbol, listener: TListener, options: IListenerOptions) => any
@@ -35,7 +37,7 @@ declare module "@vikhola/events" {
         entries(): Array<IEventEmitterListenerBucket>
     }
 
-    interface IEventEmitter {
+    interface IEventEmitter extends NodeJS.EventEmitter {
         /**
          * The `on()` method adds the listener for the event named `eventName`. Any given listener could be added only once per event.
          * 
@@ -66,18 +68,18 @@ declare module "@vikhola/events" {
          * The `eventNames()` method returns an array of the events with registered listeners. 
          */
         eventNames(): Array<string | symbol>;
-        /**
-         * The `listeners()` method returns an array of listeners and their priorities for the event named `eventName`.
-         * 
-         * @param eventName The name of the event.
-         */
-        listeners(eventName: string | symbol): Array<TListenerEntry> 
-        /**
-         * The `rawListeners()` method returns a collection containing the raw listeners buckets, sorted by their priority, for the event named `eventName`.  
-         * 
-         * Buckets of raw listeners for an event named `eventName` from a origin and target with the same priority will not be merged, but will be presented as separate items.
-         */
-        rawListeners(eventName: string | symbol): Array<IEventEmitterListenerBucket>
+        // /**
+        //  * The `listeners()` method returns an array of listeners and their priorities for the event named `eventName`.
+        //  * 
+        //  * @param eventName The name of the event.
+        //  */
+        // listeners(eventName: string | symbol): Array<TListenerEntry> 
+        // /**
+        //  * The `rawListeners()` method returns a collection containing the raw listeners buckets, sorted by their priority, for the event named `eventName`.  
+        //  * 
+        //  * Buckets of raw listeners for an event named `eventName` from a origin and target with the same priority will not be merged, but will be presented as separate items.
+        //  */
+        // rawListeners(eventName: string | symbol): Array<IEventEmitterListenerBucket>
         /**
          * The `listenerCount()` method returns the number of listeners listening for the event named `eventName`.
          * 
@@ -95,7 +97,7 @@ declare module "@vikhola/events" {
          * 
          * @returns Method return promise that resolves `true` if the event had listeners, `false` otherwise.
          */
-        emit(event: string | symbol, ...args: Array<any>): Promise<boolean>
+        emit(event: string | symbol, ...args: Array<any>): boolean | Promise<boolean>
     }
 
     export class EventEmitter implements IEventEmitter {

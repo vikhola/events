@@ -2,38 +2,14 @@ const assert = require('node:assert');
 const { describe, it } = require('node:test');
 const { EventEmitter } = require('../lib/emitter.js');
 
-const kRejectionEvent = 'error'
-
-const createOrderedListeners = t => {
-
-    const fistListener = t.mock.fn(function first() {
-        assert.strictEqual(secondListener.mock.callCount(), 0)
-        assert.strictEqual(thirdListener.mock.callCount(), 0)
-    })
-
-    const secondListener = t.mock.fn(function second()  {
-        assert.strictEqual(fistListener.mock.callCount(), 1)
-        assert.strictEqual(thirdListener.mock.callCount(), 0)
-    })
-    const thirdListener = t.mock.fn(function third()  {
-        assert.strictEqual(fistListener.mock.callCount(), 1)
-        assert.strictEqual(secondListener.mock.callCount(), 1)
-    })
-
-    return { fistListener, secondListener, thirdListener }
-} 
-
-const createErrorListeners = (t, aError) => {
-    const errorListenerSync = t.mock.fn(_ => { throw aError })
-    const errorListenerAsync = t.mock.fn(_ => new Promise((resolve, reject) => setImmediate(_ => reject(aError))))
-
-    return { errorListenerSync, errorListenerAsync }
+const slice = (arr, skip = 0, max = 3) => {
+    const result = []
+    const step = Math.round(arr.length / max)
+    for (i = skip; i < arr.length; i=i+step) 
+        result.push(arr[i]);
+    return result
 }
-
-const createChunkedListeners = (t, count, interval) => 
-    new Array(count).fill(undefined).map((v, i) => ({ listener: t.mock.fn(), priority: i >= interval ? (i % interval === 0 && i !== interval ? (interval += interval) : interval) : 0 })).reverse()
-
-const sleep = (callback, ms) => new Promise(resolve => setTimeout(_ => resolve(callback()), ms))
+const listeners = (t, count) => new Array(count).fill(undefined).map((v, i) => t.mock.fn() )
 const asyncWrapper = fn => (...args) => new Promise(resolve => setImmediate(_ => { resolve(fn(...args)) }))
 
 describe('EventEmitter test', function(t) {
@@ -56,7 +32,7 @@ describe('EventEmitter test', function(t) {
 
     describe('"on()" method', function() {
 
-        it('should add a listener to the emitter', function(t) {
+        it('should attach a listener to the emitter event', function(t) {
             const aListener = t.mock.fn()
             const aEventEmitter = new EventEmitter()
 
@@ -65,7 +41,7 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.listenerCount('event'), 1)
         })
 
-        it('should create an event with a listener on the emitter if it doesn\'t exist', function(t) {
+        it('should attach new event the emitter with an listener on if it doesn\'t exist', function(t) {
             const aListener = t.mock.fn()
             const aEventEmitter = new EventEmitter()
 
@@ -75,7 +51,7 @@ describe('EventEmitter test', function(t) {
             assert.deepStrictEqual(aEventEmitter.eventNames(), [ 'event' ])
         })
 
-        it('should not add a listener to the emitter if it\'s already there', function(t) {
+        it('should ignore a listener if he is already attached to the emitter event', function(t) {
             const aListener = t.mock.fn()
             const aEventEmitter = new EventEmitter()
 
@@ -85,7 +61,7 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.listenerCount('event'), 1)
         })
 
-        it('should remove a listener from the emitter after abort controller "abortion" event', function(t) {
+        it('should remove a listener from the emitter event after abort controller "abortion" event', function(t) {
             const aListener = t.mock.fn()
             const aEventEmitter = new EventEmitter()
             const aController = new AbortController()
@@ -97,20 +73,19 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.listenerCount('event'), 0)
         })
 
-        it('should emit "newListener" event after adding a new listener to the emitter', function(t) {
+        it('should emit "newListener" event after adding a new listener to the event', function(t) {
             const aEventEmitter = new EventEmitter({ captureRejections: true })
-
-            const aNewEventListener = t.mock.fn((name, listener, options) => {
+            const aCommonListener = t.mock.fn()
+            const aEventListener = t.mock.fn((name, listener, options) => {
                 assert.strictEqual(name, 'event')
-                assert.strictEqual(listener, aListener)
+                assert.strictEqual(listener, aCommonListener)
                 assert.deepStrictEqual(options, { priority: 7, once: true })
             })
-            const aListener = t.mock.fn()
 
-            aEventEmitter.on('newListener', aNewEventListener)
-            aEventEmitter.on('event', aListener, { priority: 7, once: true })
+            aEventEmitter.on('newListener', aEventListener)
+            aEventEmitter.on('event', aCommonListener, { priority: 7, once: true })
 
-            assert.strictEqual(aNewEventListener.mock.callCount(), 1)
+            assert.strictEqual(aEventListener.mock.callCount(), 1)
         })
 
         it('should not emit "newListener" event when adding listener of it', function(t) {
@@ -120,22 +95,6 @@ describe('EventEmitter test', function(t) {
             aEventEmitter.on('newListener', aListener)
 
             assert.strictEqual(aListener.mock.callCount(), 0)
-        })
-
-        it(`should emit "error" event when a "newListener" event listener rejects an Error`, async function(t) {
-            const aError = new Error('test')
-            const aEventEmitter = new EventEmitter()
-
-            const aListener = t.mock.fn(error => assert.strictEqual(error, aError))
-            const aNewEventListener = t.mock.fn(_ => { throw aError })
-
-            aEventEmitter.on(kRejectionEvent, aListener)
-            aEventEmitter.on('newListener', aNewEventListener)
-            aEventEmitter.on('event', _ => {})
-
-            await new Promise(resolve => setImmediate(resolve))
-
-            assert.strictEqual(aListener.mock.callCount(), 1)
         })
 
         it('should throw an Error when some arguments is not provided', function(t) {
@@ -180,9 +139,9 @@ describe('EventEmitter test', function(t) {
 
     })
 
-    describe('"off()" method',  async function() {
+    describe('"off()" method', function() {
 
-        it('should remove a listener from the emitter', function(t) {
+        it('should remove a listener from the emitter event', function(t) {
             const aListener = t.mock.fn()
             const aEventEmitter = new EventEmitter()
 
@@ -202,7 +161,7 @@ describe('EventEmitter test', function(t) {
             assert.deepStrictEqual(aEventEmitter.eventNames(), [])
         })
 
-        it('should remove a listener only from specified event', function(t) {
+        it('should remove a listener only from the emitter event', function(t) {
             const aListener = t.mock.fn()
             const aEventEmitter = new EventEmitter()
 
@@ -212,21 +171,6 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.off('event', aListener), aEventEmitter)
             assert.strictEqual(aEventEmitter.listenerCount('event'), 0)
             assert.strictEqual(aEventEmitter.listenerCount('event.foo'), 1)
-        })
-
-        it('should prevent the event listeners from executing if they have been removed', async function(t) {
-            const aListener = t.mock.fn()
-            const aEventEmitter = new EventEmitter()
-
-            const aRemoveListener = t.mock.fn(_ => aEventEmitter.off('foo', aListener))
-
-            aEventEmitter.on('foo', aRemoveListener)
-            aEventEmitter.on('foo', aListener)
-
-            await aEventEmitter.emit('foo')
-
-            assert.strictEqual(aListener.mock.callCount(), 0)
-            assert.strictEqual(aRemoveListener.mock.callCount(), 1)
         })
 
         it('should emit "removeListener" event before listener removing', function(t) {
@@ -243,23 +187,6 @@ describe('EventEmitter test', function(t) {
             aEventEmitter.off('event', aListener)
 
             assert.strictEqual(aRemoveEventListener.mock.callCount(), 1)
-        })
-
-        it(`should emit "error" event when a "removeListener" event listener rejects an Error`, async function(t) {
-            const aError = new Error('test')
-            const aEventEmitter = new EventEmitter()
-
-            const aListener = t.mock.fn(error => assert.strictEqual(error, aError))
-            const aRemovedListener = t.mock.fn()
-            const aRemoveEventListener = t.mock.fn(_ => { throw aError })
-
-            aEventEmitter.on(kRejectionEvent, aListener)
-            aEventEmitter.on('removeListener', aRemoveEventListener)
-            aEventEmitter.on('event', aRemovedListener).off('event', aRemovedListener)
-
-            await new Promise(resolve => setImmediate(resolve))
-
-            assert.strictEqual(aListener.mock.callCount(), 1)
         })
 
         it('should throw an Error when some arguments is not provided', function(t) {
@@ -281,45 +208,40 @@ describe('EventEmitter test', function(t) {
 
     describe('"eventNames()" method',  function() {
 
-        it('should return empty array if no events is bound to the emitter', function(t) {
+        it('should return empty array if no events is attached to the emitter', function(t) {
             const aEventEmitter = new EventEmitter
             assert.deepStrictEqual(aEventEmitter.eventNames(), [])
         })
 
-        it('should return events bound to the emitter', function(t) {
-            const aEventEmitter = new EventEmitter()
-
-            aEventEmitter.on('foo', _ => {})
-
-            assert.deepStrictEqual(aEventEmitter.eventNames(), [ 'foo' ])
-
-            aEventEmitter.on('bar', _ => {})
-
-            assert.deepStrictEqual(aEventEmitter.eventNames(), [ 'foo', 'bar' ])
-        })
-
-        it('should return empty array if no events is bound to the emitter origin', function(t) {
+        it('should return empty array if no events is attached to the emitter and his origin', function(t) {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
             assert.deepStrictEqual(aEventEmitterThree.eventNames(), [])
         })
 
-        it('should return events bound to the emitter origin', function() {
+        it('should return events attached to the emitter', function(t) {
+            const aEventEmitter = new EventEmitter()
+
+            aEventEmitter.on('foo', _ => {})
+            assert.deepStrictEqual(aEventEmitter.eventNames(), [ 'foo' ])
+
+            aEventEmitter.on('bar', _ => {})
+            assert.deepStrictEqual(aEventEmitter.eventNames(), [ 'foo', 'bar' ])
+        })
+
+        it('should return events attached to the emitter and his origin', function() {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
 
             aEventEmitterOne.on('foo', _ => {})
-
             assert.deepStrictEqual(aEventEmitterThree.eventNames(), [ 'foo' ])
 
             aEventEmitterTwo.on('bar', _ => {})
-
             assert.deepStrictEqual(aEventEmitterThree.eventNames(), [ 'foo', 'bar' ])
 
             aEventEmitterThree.on('baz', _ => {})
-
             assert.deepStrictEqual(aEventEmitterThree.eventNames(), [ 'foo', 'bar', 'baz' ])
         })
 
@@ -327,94 +249,93 @@ describe('EventEmitter test', function(t) {
 
     describe('"listeners()" method', function() {
 
-        it('should return empty array if no listeners is bound to the emitter event', function(t) {
+        it('should return empty array if there are no listeners attached to the emitter event', function(t) {
             const aEventEmitter = new EventEmitter
             assert.deepStrictEqual(aEventEmitter.listeners('foo'), [])
         })
 
-        it('should return listeners bound to the emitter event', async function(t) {
-            const aListeners = createChunkedListeners(t, 9, 3)
+        it('should return empty array if there are no listeners attached to the event at the emitter and his origin', function(t) {
+            const aEventEmitterOne = new EventEmitter
+            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
+            assert.deepStrictEqual(aEventEmitterTwo.listeners('foo'), [])
+        })
+
+        it('should return listeners attached to the emitter event', function(t) {
+            const aListeners = listeners(t, 9)
             const aEventEmitter = new EventEmitter
 
-            for(const listener of aListeners)
-                aEventEmitter.on('foo', listener.listener, { priority: listener.priority })
-
+            aListeners.forEach(listener => aEventEmitter.on('foo', listener))
             assert.deepEqual(aEventEmitter.listeners('foo'), aListeners)
         })
 
-        it('should return empty array if there are no listeners attached to the event in the emitter origin', function(t) {
-            const aEventEmitterOne = new EventEmitter
-            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
-            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
-            assert.deepStrictEqual(aEventEmitterThree.listeners('foo'), [])
-        })
-
-        it('should return event listeners attached to the event from the emitter origin', function(t) {
-            const aListeners = createChunkedListeners(t, 9, 3)
+        it('should return listeners attached to the event at the emitter and his origin', function(t) {
+            const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
 
-            for(const listener of aListeners.slice(0, 3))
-                aEventEmitterOne.on('foo', listener.listener, { priority: listener.priority })
-
-            assert.deepEqual(aEventEmitterThree.listeners('foo'), aListeners.slice(0, 3))
-
-            for(const listener of aListeners.slice(3, 6))
-                aEventEmitterTwo.on('foo', listener.listener, { priority: listener.priority })
-
-            assert.deepEqual(aEventEmitterThree.listeners('foo'), aListeners.slice(0, 6))
-
-            for(const listener of aListeners.slice(6, 9))
-                aEventEmitterThree.on('foo', listener.listener, { priority: listener.priority })
+            aListeners.slice(0, 3).forEach(listener => aEventEmitterOne.on('foo', listener))
+            aListeners.slice(3, 6).forEach(listener => aEventEmitterTwo.on('foo', listener))
+            aListeners.slice(6, 9).forEach(listener => aEventEmitterThree.on('foo', listener))
 
             assert.deepEqual(aEventEmitterThree.listeners('foo'), aListeners)
+        })
+
+        it('should return listeners attached to the emitter event sorted by their priority', function(t) {
+            const aListeners = listeners(t, 9)
+            const aEventEmitter = new EventEmitter
+
+            aListeners.forEach((listener, i) => aEventEmitter.on('foo', listener, { priority: i }))
+            assert.deepEqual(aEventEmitter.listeners('foo'), aListeners.reverse())
+        })
+
+        it('should return listeners attached to the event at the emitter and his origin sorted by their priority', function(t) {
+            const aListeners = listeners(t, 9)
+            const aEventEmitterOne = new EventEmitter
+            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
+            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
+
+            slice(aListeners, 2).forEach((listener, i) => aEventEmitterOne.on('foo', listener, { priority: i }))
+            slice(aListeners, 1).forEach((listener, i) => aEventEmitterTwo.on('foo', listener, { priority: i }))
+            slice(aListeners, ).forEach((listener, i) => aEventEmitterThree.on('foo', listener, { priority: i }))
+
+            assert.deepEqual(aEventEmitterThree.listeners('foo'), aListeners.reverse())
         })
 
     })
 
     describe('"listenersCount()" method', function() {
 
-        it('should return 0 if no listeners is bound to the emitter event', function(t) {
+        it('should return 0 if no listeners attached to the emitter event', function(t) {
             const aEventEmitter = new EventEmitter
             assert.deepStrictEqual(aEventEmitter.listenerCount('foo'), 0)
         })
 
-        it('should return listeners count bound to the emitter event', function(t) {
-            const aListeners = createChunkedListeners(t, 9, 3)
-            const aEventEmitter = new EventEmitter
-
-            for(const listener of aListeners)
-                aEventEmitter.on('foo', listener.listener, { priority: listener.priority })
-
-            assert.strictEqual(aEventEmitter.listenerCount('foo'), 9)
-        })
-
-        it('should return 0 if there are no listeners attached to the event in the emitter origin', function(t) {
+        it('should return 0 if there are no listeners attached to the event at the emitter and his origin', function(t) {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
             assert.deepStrictEqual(aEventEmitterThree.listenerCount('foo'), 0)
         })
 
-        it('should return event listeners count attached to the event in the emitter origin', function(t) {
-            const aListeners = createChunkedListeners(t, 9, 3)
+        it('should return count of listeners attached to the emitter event', function(t) {
+            const aListeners = listeners(t, 9)
+            const aEventEmitter = new EventEmitter
+
+            aListeners.forEach(listener => aEventEmitter.on('foo', listener))
+
+            assert.strictEqual(aEventEmitter.listenerCount('foo'), 9)
+        })
+
+        it('should return count of listeners attached to the event at the emitter and his origin', function(t) {
+            const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
 
-            for(const listener of aListeners.slice(0, 3))
-                aEventEmitterOne.on('foo', listener.listener, { priority: listener.priority })
-
-            assert.strictEqual(aEventEmitterThree.listenerCount('foo'), 3)
-
-            for(const listener of aListeners.slice(3, 6))
-                aEventEmitterTwo.on('foo', listener.listener, { priority: listener.priority })
-
-            assert.strictEqual(aEventEmitterThree.listenerCount('foo'), 6)
-
-            for(const listener of aListeners.slice(6, 9))
-                aEventEmitterThree.on('foo', listener.listener, { priority: listener.priority })
+            aListeners.slice(0, 3).forEach(listener => aEventEmitterOne.on('foo', listener))
+            aListeners.slice(3, 6).forEach(listener => aEventEmitterTwo.on('foo', listener))
+            aListeners.slice(6, 9).forEach(listener => aEventEmitterThree.on('foo', listener))
 
             assert.strictEqual(aEventEmitterThree.listenerCount('foo'), 9)
         })
@@ -423,77 +344,74 @@ describe('EventEmitter test', function(t) {
 
     describe('"rawListeners()" method', function() {
 
-        it('should return empty array if no event listeners is bound to the emitter event', function(t) {
+        it('should return empty array if no listeners attached to the emitter event', function(t) {
             const aEventEmitter = new EventEmitter
             assert.deepEqual(aEventEmitter.rawListeners('foo'), [])
         })
 
-        it('should return listner buckets bound to the emitter event', function(t) {
-            const aListeners = createChunkedListeners(t, 6, 3)
-            const aEventEmitter = new EventEmitter
-
-            assert.deepEqual(aEventEmitter.rawListeners('foo'), [])
-
-            for(const listener of aListeners)
-                aEventEmitter.on('foo', listener.listener, { priority: listener.priority })
-            
-            assert.deepEqual(
-                aEventEmitter.rawListeners('foo').flat().map(listener => listener.callback), 
-                aListeners.map(listener => listener.listener)
-            )
-        })
-
-        it('should return empty array if no event listeners attached to the event in the emitter origin', function(t) {
+        it('should return empty array if no listeners attached to the event at the emitter and his origin', function(t) {
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
             assert.deepEqual(aEventEmitterThree.rawListeners('foo'), [])
         })
 
-        it('should return event listeners attached to the event in the emitter origin', function(t) {
-            const aListeners = createChunkedListeners(t, 9, 3)
+        it('should return raw listeners attached to the emitter event', function(t) {
+            const aListeners = listeners(t, 9)
+            const aEventEmitter = new EventEmitter
+
+            aListeners.forEach(listener => aEventEmitter.on('foo', listener))
+            
+            assert.deepEqual(aEventEmitter.rawListeners('foo').map(listener => listener.listener), aListeners)
+        })
+
+        it('should return raw listeners attached to the event at the emitter and his origin', function(t) {
+            const aListeners = listeners(t, 9)
             const aEventEmitterOne = new EventEmitter
             const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
             const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
 
-            for(const listener of aListeners.slice(0, 3))
-                aEventEmitterOne.on('foo', listener.listener, { priority: listener.priority })
+            aListeners.slice(0, 3).forEach(listener => aEventEmitterOne.on('foo', listener))
+            aListeners.slice(3, 6).forEach(listener => aEventEmitterTwo.on('foo', listener))
+            aListeners.slice(6, 9).forEach(listener => aEventEmitterThree.on('foo', listener))
 
-            assert.deepEqual(
-                aEventEmitterThree.rawListeners('foo').flat().map(listener => listener.callback), 
-                aListeners.slice(0, 3).map(listener => listener.listener)
-            )
+            assert.deepEqual(aEventEmitterThree.rawListeners('foo').map(listener => listener.listener), aListeners)
+        })
 
-            for(const listener of aListeners.slice(3, 6))
-                aEventEmitterTwo.on('foo', listener.listener, { priority: listener.priority })
+        it('should return raw listeners attached to the emitter event sorted by their priority', function(t) {
+            const aListeners = listeners(t, 9)
+            const aEventEmitter = new EventEmitter
 
-            assert.deepEqual(
-                aEventEmitterThree.rawListeners('foo').flat().map(listener => listener.callback), 
-                aListeners.slice(0, 6).map(listener => listener.listener)
-            )
+            aListeners.forEach((listener, i) => aEventEmitter.on('foo', listener, { priority: i }))
 
-            for(const listener of aListeners.slice(6, 9))
-                aEventEmitterThree.on('foo', listener.listener, { priority: listener.priority })
+            assert.deepEqual(aEventEmitter.rawListeners('foo').map(listener => listener.listener), aListeners.reverse())
+            assert.deepEqual(aEventEmitter.rawListeners('foo').map(listener => listener.priority), [ 8, 7, 6, 5, 4, 3, 2, 1, 0 ])
+        })
 
-            assert.deepEqual(
-                aEventEmitterThree.rawListeners('foo').flat().map(listener => listener.callback), 
-                aListeners.slice(0, 9).map(listener => listener.listener)
-            )
+        it('should return listeners attached to the event at the emitter and his origin sorted by their priority', function(t) {
+            const aListeners = listeners(t, 9)
+            const aEventEmitterOne = new EventEmitter
+            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
+            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
+
+            slice(aListeners, 2).forEach((listener, i) => aEventEmitterOne.on('foo', listener, { priority: i }))
+            slice(aListeners, 1).forEach((listener, i) => aEventEmitterTwo.on('foo', listener, { priority: i }))
+            slice(aListeners, ).forEach((listener, i) => aEventEmitterThree.on('foo', listener, { priority: i }))
+
+            assert.deepEqual(aEventEmitterThree.rawListeners('foo').map(listener => listener.listener), aListeners.reverse())
+            assert.deepEqual(aEventEmitterThree.rawListeners('foo').map(listener => listener.priority), [ 2, 2, 2, 1, 1, 1, 0, 0, 0 ])
         })
 
     })
 
     describe('"removeAllListeners()" method',  function() {
 
-        it('should remove all listeners and their events from the emitter', function(t) {
-            const aListeners = createChunkedListeners(t, 9, 3)
+        it('should remove all listeners and attached events from the emitter', function(t) {
+            const aListeners = listeners(t, 9)
             const aEventEmitter = new EventEmitter()
 
-            for(const listener of aListeners.slice(0, 9))
-                aEventEmitter.on('foo', listener.listener, { priority: listener.priority })
-
-            for(const listener of aListeners.slice(0, 9))
-                aEventEmitter.on('bar', listener.listener, { priority: listener.priority })
+            aListeners.forEach(listener => aEventEmitter.on('foo', listener))
+            aListeners.forEach(listener => aEventEmitter.on('bar', listener))
 
             aEventEmitter.removeAllListeners()
 
@@ -502,15 +420,12 @@ describe('EventEmitter test', function(t) {
             assert.deepStrictEqual(aEventEmitter.eventNames(), [])
         })
 
-        it('should remove all listeners from the emitter by event', function(t) {
-            const aListeners = createChunkedListeners(t, 9, 3)
+        it('should remove all listeners attached to the emitter event', function(t) {
+            const aListeners = listeners(t, 9)
             const aEventEmitter = new EventEmitter()
 
-            for(const listener of aListeners.slice(0, 9))
-                aEventEmitter.on('foo', listener.listener, { priority: listener.priority })
-
-            for(const listener of aListeners.slice(0, 9))
-                aEventEmitter.on('bar', listener.listener, { priority: listener.priority })
+            aListeners.forEach(listener => aEventEmitter.on('foo', listener))
+            aListeners.forEach(listener => aEventEmitter.on('bar', listener))
 
             aEventEmitter.removeAllListeners('foo')
 
@@ -518,205 +433,204 @@ describe('EventEmitter test', function(t) {
             assert.strictEqual(aEventEmitter.listenerCount('bar'), 9)
             assert.deepStrictEqual(aEventEmitter.eventNames(), [ 'bar' ])
         })
-
-        it('should prevent the event listeners from executing if they have been removed', async function(t) {
-            const aListener = t.mock.fn()
-            const aEventEmitter = new EventEmitter()
-
-            const aRemoveListener = t.mock.fn(_ => aEventEmitter.removeAllListeners('foo'))
-
-            aEventEmitter.on('foo', aRemoveListener)
-            aEventEmitter.on('foo', aListener)
-
-            await aEventEmitter.emit('foo')
-
-            assert.strictEqual(aListener.mock.callCount(), 0)
-            assert.strictEqual(aRemoveListener.mock.callCount(), 1)
-        })
         
     })
 
-    describe('"emit()" method', async function() {
+    describe('"emit()" method', function() {
 
-        it('should return promise that imidiatly resolves `false` value if no listeners bound to the event',  async function(t) {
+        const listeners = t => {
+
+            const first = t.mock.fn(function first() {
+                assert.strictEqual(second.mock.callCount(), 0)
+                assert.strictEqual(third.mock.callCount(), 0)
+            })
+        
+            const second = t.mock.fn(function second()  {
+                assert.strictEqual(first.mock.callCount(), 1)
+                assert.strictEqual(third.mock.callCount(), 0)
+            })
+            const third = t.mock.fn(function third()  {
+                assert.strictEqual(first.mock.callCount(), 1)
+                assert.strictEqual(second.mock.callCount(), 1)
+            })
+        
+            return [ first, second, third ]
+        } 
+        
+        it('should return "false" when no listeners is listening the event', function(t) {
             const payload = Symbol('args')
             const aEventEmitter = new EventEmitter()
 
-            assert.strictEqual(await aEventEmitter.emit('event', payload), false)
+            assert.strictEqual(aEventEmitter.emit('event', payload), false)
         })
 
-        it('should return promise that resolves `true` value after calling event listeners event with provided arguments',  async function(t) {
+        it('should call listeners with provided arguments and with emitter as this', function(t) {
             const payload = Symbol('args')
-            const aListener = t.mock.fn(arg => assert.strictEqual(arg, payload))
             const aEventEmitter = new EventEmitter()
+            const aListener = t.mock.fn(function (arg) {
+                assert.strictEqual(arg, payload)
+                assert.strictEqual(this, aEventEmitter)
+            })
 
-            aEventEmitter.on('event', asyncWrapper(aListener))
+            aEventEmitter.on('event', aListener).emit('event', payload)
 
-            assert.strictEqual(await aEventEmitter.emit('event', payload), true)
             assert.strictEqual(aListener.mock.callCount(), 1)
         })
 
-        it('should call listeners from the emitter origin', async function(t) {
-            const payload = { count: 0 }
-            const aEventEmitterOne = new EventEmitter
-            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
-            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
-    
-            aEventEmitterThree
-                .on('foo', payload => assert.strictEqual(payload.count++, 2))
-    
-            aEventEmitterTwo 
-                .on('foo', payload => assert.strictEqual(payload.count++, 1))
-                .on('foo', payload => sleep(_ => assert.strictEqual(payload.count++, 3), 5))
-    
-            aEventEmitterOne
-                .on('foo', payload => assert.strictEqual(payload.count++, 0))
-                .on('foo', payload => sleep(_ => assert.strictEqual(payload.count++, 4), 10))
-    
-            await aEventEmitterThree.emit('foo', payload)
-    
-            assert.strictEqual(payload.count, 5)
-        })
-
-        it('should call listeners in the order of their priority',  async function(t) {
+        it('should call once listener and remove it from the emitter event after first call', function(t) {
+            const payload = Symbol('args')
             const aEventEmitter = new EventEmitter()
+            const aListener = t.mock.fn(function (arg) {
+                assert.strictEqual(arg, payload)
+                assert.strictEqual(this, aEventEmitter)
+            })
 
-            const { fistListener, secondListener, thirdListener } = createOrderedListeners(t)
+            aEventEmitter.on('event', aListener, { once: true })
 
-            aEventEmitter.on('event', secondListener, { priority: 2 })
-            aEventEmitter.on('event', fistListener, { priority: 3 })
-            aEventEmitter.on('event', thirdListener, { priority: 1 })
+            aEventEmitter.emit('event', payload)
+            aEventEmitter.emit('event', payload)
+            aEventEmitter.emit('event', payload)
 
-            await aEventEmitter.emit('event')
-
-            assert.strictEqual(fistListener.mock.callCount(), 1)
-            assert.strictEqual(secondListener.mock.callCount(), 1)
-            assert.strictEqual(thirdListener.mock.callCount(), 1)
-        })
-
-        it('should call listeners from the emitter origin in the order of their priority', async function(t) {
-            const payload = { count: 0 }
-    
-            const aEventEmitterOne = new EventEmitter
-            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
-            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
-    
-            aEventEmitterThree
-                .on('foo', payload => assert.strictEqual(payload.count++, 0), { priority: 3 })
-                .on('foo', payload => sleep(_ => assert.strictEqual(payload.count++, 4), 10))
-    
-            aEventEmitterTwo 
-                .on('foo', payload => assert.strictEqual(payload.count++, 1), { priority: 2 })
-    
-            aEventEmitterOne
-                .on('foo', payload => sleep(_ => assert.strictEqual(payload.count++, 2), 5), { priority: 1 })
-                .on('foo', payload => sleep(_ => assert.strictEqual(payload.count++, 3), 10))
-    
-            await aEventEmitterThree.emit('foo', payload)
-    
-            assert.strictEqual(payload.count, 5)
-        })
-
-        it('should call listeners in the order of time when they were added if priority is same between listeners',  async function(t) {
-            const aEventEmitter = new EventEmitter()
-            const { fistListener, secondListener, thirdListener } = createOrderedListeners(t)
-
-            aEventEmitter.on('event', fistListener)
-            aEventEmitter.on('event', asyncWrapper(secondListener))
-            aEventEmitter.on('event', asyncWrapper(thirdListener))
-
-            await aEventEmitter.emit('event')
-
-            assert.strictEqual(fistListener.mock.callCount(), 1)
-            assert.strictEqual(secondListener.mock.callCount(), 1)
-            assert.strictEqual(thirdListener.mock.callCount(), 1)
-        })
-
-        it('should not call listeners from the emitter origin if it has been removed', async function(t) {
-            const aListener = t.mock.fn()
-            const aEventEmitterOne = new EventEmitter
-            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
-            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
-    
-            aEventEmitterOne
-                .on('foo', aListener, { priority: 3 })
-                .on('foo', _ => aEventEmitterTwo.off('foo', aListener), { priority: 1 } )
-                
-            aEventEmitterTwo
-                .on('foo', aListener)
-                .on('foo', _ => new Promise(resolve => setImmediate(resolve)), { priority: 2 })
-    
-            await aEventEmitterThree.emit('foo')
-    
             assert.strictEqual(aListener.mock.callCount(), 1)
+            assert.strictEqual(aEventEmitter.listenerCount('event'), 0)
         })
 
-        it('should reject Error if that occur during listener execution',  async function(t) {
-            const aError = new Error('test')
-            const { errorListenerSync, errorListenerAsync } = createErrorListeners(t, aError)
-
-            {
-                const aEventEmitter = new EventEmitter()
-                aEventEmitter.on('event', errorListenerSync)
-                await assert.rejects(_ => aEventEmitter.emit('event'), aError)
-            }
-
-            {
-                const aEventEmitter = new EventEmitter()
-                aEventEmitter.on('event', errorListenerAsync)
-                await assert.rejects(_ => aEventEmitter.emit('event'), aError)
-            }
-
-        })
-
-        it(`should not reject listener Error if "captureRejection" is set to true and emit "error" instead`,  async function(t) {
-            const aError = new Error('test')
-            const errorListener = t.mock.fn(error => assert.strictEqual(error, aError))
-            const { errorListenerSync, errorListenerAsync } = createErrorListeners(t, aError)
-
-            {   
-                const aEventEmitter = new EventEmitter({ captureRejections: true })
-                aEventEmitter.on(kRejectionEvent, errorListener)
-                aEventEmitter.on('event', errorListenerSync);
-                await aEventEmitter.emit('event')
-            }
-
-            {
-                const aEventEmitter = new EventEmitter({ captureRejections: true })
-                aEventEmitter.on(kRejectionEvent, errorListener)
-                aEventEmitter.on('event', errorListenerAsync);
-                await aEventEmitter.emit('event')
-            }
-
-            await new Promise(resolve => setImmediate(resolve))
-
-            assert.strictEqual(errorListener.mock.callCount(), 2)    
-        })
-
-        it(`should reject Error if that occur during "error" execution`, async function(t) {
-            const aError = new Error('test')
-
-            const { errorListenerSync, errorListenerAsync } = createErrorListeners(t, aError)
-
-            {
-                const aEventEmitter = new EventEmitter({ captureRejections: true })
-                aEventEmitter.on(kRejectionEvent, errorListenerSync);
-                aEventEmitter.on('event', errorListenerSync);
-                await assert.rejects(_ => aEventEmitter.emit('event'), aError)
-            }
-
-            {
-                const aEventEmitter = new EventEmitter({ captureRejections: true })
-                aEventEmitter.on(kRejectionEvent, errorListenerAsync);
-                aEventEmitter.on('event', errorListenerAsync);
-                await assert.rejects(_ => aEventEmitter.emit('event'), aError)
-            }
-
-        })
-
-        it('should reject an Error when eventName is not provided',  async function(t) {
+        it('should call listeners and return "true" if event listening only synchronous listeners', function(t) {
+            const payload = Symbol('args')
+            const aListenerOne = t.mock.fn(arg => assert.strictEqual(arg, payload))
+            const aListenerTwo = t.mock.fn()
             const aEventEmitter = new EventEmitter()
-            assert.rejects(_ => aEventEmitter.emit(), { message: 'EventEmitter "event" to emit is not specified.' })
+
+            aEventEmitter.on('event', aListenerOne)
+            aEventEmitter.on('event', aListenerTwo)
+
+            assert.strictEqual(aEventEmitter.emit('event', payload), true)
+            assert.strictEqual(aListenerOne.mock.callCount(), 1)
+            assert.strictEqual(aListenerTwo.mock.callCount(), 1)
+        })
+
+        it('should call listeners and return promise which resolves "true" if event listening some async listeners', async function(t) {
+            const aListenerOne = t.mock.fn()
+            const aListenerTwo = t.mock.fn()
+            const aListenerThree = t.mock.fn()
+            const aEventEmitter = new EventEmitter()
+
+            aEventEmitter.on('event', aListenerOne)
+            aEventEmitter.on('event', asyncWrapper(aListenerTwo))
+            aEventEmitter.on('event', aListenerThree)
+
+            const result = aEventEmitter.emit('event')
+
+            assert.strictEqual(result instanceof Promise, true)
+            assert.strictEqual(await result, true)
+            assert.strictEqual(aListenerOne.mock.callCount(), 1)
+            assert.strictEqual(aListenerTwo.mock.callCount(), 1)
+            assert.strictEqual(aListenerThree.mock.callCount(), 1)
+        })
+
+        it('should call listeners in the order of their priority', function(t) {
+            const aEventEmitter = new EventEmitter()
+            const [ aListenerOne, aListenerTwo, aListenerThree ] = listeners(t)
+
+            aEventEmitter.on('event', aListenerTwo, { priority: 2 })
+            aEventEmitter.on('event', aListenerOne, { priority: 3 })
+            aEventEmitter.on('event', aListenerThree, { priority: 1 })
+
+            aEventEmitter.emit('event')
+
+            assert.strictEqual(aListenerOne.mock.callCount(), 1)
+            assert.strictEqual(aListenerTwo.mock.callCount(), 1)
+            assert.strictEqual(aListenerThree.mock.callCount(), 1)
+        })
+
+        it('should call listeners in the order they were added if the priority between listeners is the same',  async function(t) {
+            const aEventEmitter = new EventEmitter()
+            const [ aListenerOne, aListenerTwo, aListenerThree ] = listeners(t)
+
+            aEventEmitter.on('event', aListenerOne)
+            aEventEmitter.on('event', asyncWrapper(aListenerTwo))
+            aEventEmitter.on('event', asyncWrapper(aListenerThree))
+
+            await aEventEmitter.emit('event')
+
+            assert.strictEqual(aListenerOne.mock.callCount(), 1)
+            assert.strictEqual(aListenerTwo.mock.callCount(), 1)
+            assert.strictEqual(aListenerThree.mock.callCount(), 1)
+        })
+
+        it('should call listeners from the emitter origin in the order of their priority', function(t) {
+            const aEventEmitterOne = new EventEmitter
+            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
+            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
+            const [ aListenerOne, aListenerTwo, aListenerThree ] = listeners(t)
+    
+            aEventEmitterThree.on('foo', aListenerOne, { priority: 10 })
+            aEventEmitterTwo.on('foo', aListenerThree)
+            aEventEmitterOne.on('foo', aListenerTwo, { priority: 5 })
+    
+            aEventEmitterThree.emit('foo')
+    
+            assert.strictEqual(aListenerOne.mock.callCount(), 1)
+            assert.strictEqual(aListenerTwo.mock.callCount(), 1)
+            assert.strictEqual(aListenerThree.mock.callCount(), 1)
+        })
+
+        it('should call listeners in the order of their emitters if the priority between listeners is the same', function(t) {
+            const aEventEmitterOne = new EventEmitter
+            const aEventEmitterTwo = new EventEmitter({ origin: aEventEmitterOne })
+            const aEventEmitterThree = new EventEmitter({ origin: aEventEmitterTwo })
+            const [ aListenerOne, aListenerTwo, aListenerThree ] = listeners(t)
+    
+            aEventEmitterThree.on('foo', aListenerThree)
+            aEventEmitterTwo.on('foo', aListenerTwo)
+            aEventEmitterOne.on('foo', aListenerOne)
+    
+            aEventEmitterThree.emit('foo')
+    
+            assert.strictEqual(aListenerOne.mock.callCount(), 1)
+            assert.strictEqual(aListenerTwo.mock.callCount(), 1)
+            assert.strictEqual(aListenerThree.mock.callCount(), 1)
+        })
+
+        it('should throw an error when eventName is not provided', function(t) {
+            const aEventEmitter = new EventEmitter()
+            assert.throws(_ => aEventEmitter.emit(), { message: 'EventEmitter "event" to emit is not specified.' })
+        })
+
+        it('should throw an error occurred during synchronous listeners execution', function(t) {
+            const aError = new Error('oops')
+            const aEventEmitter = new EventEmitter()
+
+            aEventEmitter.on('event', _ => { throw aError })
+
+            assert.throws(_ => aEventEmitter.emit('event'), aError)
+        })
+
+        it('should reject an error occurred during asynchronous listeners execution', async function(t) {
+            const aError = new Error('oops')
+            const aEventEmitter = new EventEmitter()
+
+            aEventEmitter.on('event', _ => new Promise((resolve, reject) => setImmediate(_ => reject(aError))))
+
+            assert.rejects(_ => aEventEmitter.emit('event'), aError)
+        })
+
+        it('should reject an error occurred during a synchronous listener among asynchronous listeners', async function(t) {
+            const aSyncError = new Error('sync oops')
+            const aAsyncError = new Error('async oops')
+            const aEventEmitter = new EventEmitter()
+            const aErrorListener = t.mock.fn(error => { throw error })
+
+            process.once('unhandledRejection', aErrorListener)
+
+            aEventEmitter.on('event', _ => new Promise((resolve, reject) => setImmediate(_ => reject(aAsyncError))))
+            aEventEmitter.on('event', _ => { throw aSyncError })
+
+            await assert.rejects(_ => aEventEmitter.emit('event'), aSyncError)
+            await new Promise((resolve, reject) => setImmediate(resolve))
+
+            process.removeListener('unhandledRejection', aErrorListener)
+            assert.strictEqual(aErrorListener.mock.callCount(), 0)
         })
 
     })
