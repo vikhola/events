@@ -176,17 +176,7 @@ describe('Collection test', function() {
             assert.deepEqual(aCollection.entries(), aListeners.reverse())
         })
 
-        it('should cache and return same entries of listeners', function(t) {
-            const aListeners = new Array(10).fill(undefined).map((el, i) => new Listener(t.mock.fn()))
-            const aCollection = new Collection()
-
-            for(let i = 0; i < aListeners.length; i++)
-                aCollection.add(aListeners[i])
-
-            assert.strictEqual(aCollection.entries(), aCollection.entries())
-        })
-
-        it('should return new entries if the colletion was changed', function(t) {
+        it('should return new entries if the colletion was changed by adding new listeners', function(t) {
             const aCollection = new Collection()
             const aListenersOne = new Array(10).fill(undefined).map((el, i) => new Listener(function listener() {}, i))
 
@@ -197,17 +187,21 @@ describe('Collection test', function() {
 
             aCollection.add(new Listener(t.mock.fn, 10))
 
-            assert.notStrictEqual(entries, aCollection.entries())
+            assert.notDeepEqual(entries, aCollection.entries())
         })
 
-        it('should freeze returned entries', function(t) {
+        it('should return new entries if the colletion was changed by removing listeners', function(t) {
             const aCollection = new Collection()
             const aListenersOne = new Array(10).fill(undefined).map((el, i) => new Listener(function listener() {}, i))
 
             for(let i = 0; i < aListenersOne.length; i++)
                 aCollection.add(aListenersOne[i])
 
-            assert.strictEqual(Object.isFrozen(aCollection.entries()), true)
+            const entries = aCollection.entries()
+
+            aCollection.delete(aListenersOne[0].listener)
+
+            assert.notDeepEqual(entries, aCollection.entries())
         })
 
         it('should return the collection entries with merged and sorted additional listeners', function(t) {
@@ -221,32 +215,6 @@ describe('Collection test', function() {
 
             assert.deepEqual(aCollection.entries(aListenersTwo), aMergedListeners)
             assert.strictEqual(aCollection.entries(aListenersTwo)[0], aListenersTwo[0])
-        })
-
-        it('should cache and return same collection entries if provided additional collection was already used', function(t) {
-            const aCollection = new Collection()
-            const aListenersOne = new Array(10).fill(undefined).map((el, i) => new Listener(function listener() {}, i))
-            const aListenersTwo = new Array(10).fill(undefined).map((el, i) => new Listener(t.mock.fn(), i)).sort(sort)
-
-            for(let i = 0; i < aListenersOne.length; i++)
-                aCollection.add(aListenersOne[i])
-
-            assert.strictEqual(aCollection.entries(aListenersTwo), aCollection.entries(aListenersTwo))
-        })
-
-        it('should return new merged entries if the colletion was changed', function(t) {
-            const aCollection = new Collection()
-            const aListenersOne = new Array(10).fill(undefined).map((el, i) => new Listener(function listener() {}, i))
-            const aListenersTwo = new Array(10).fill(undefined).map((el, i) => new Listener(t.mock.fn(), i)).sort(sort)
-
-            for(let i = 0; i < aListenersOne.length; i++)
-                aCollection.add(aListenersOne[i])
-
-            const entries = aCollection.entries(aListenersTwo)
-
-            aCollection.add(new Listener(t.mock.fn, 10))
-
-            assert.notStrictEqual(entries, aCollection.entries(aListenersTwo))
         })
 
         it('should return new merged entries if the additional listeners was changed', function(t) {
@@ -263,17 +231,6 @@ describe('Collection test', function() {
             aCollection.add(new Listener(t.mock.fn, 10))
 
             assert.notStrictEqual(entries, aCollection.entries(aListenersThree))
-        })
-
-        it('should freeze returned entries with additional listeners', function(t) {
-            const aCollection = new Collection()
-            const aListenersOne = new Array(10).fill(undefined).map((el, i) => new Listener(function listener() {}, i))
-            const aListenersTwo = new Array(10).fill(undefined).map((el, i) => new Listener(t.mock.fn(), i)).sort(sort)
-
-            for(let i = 0; i < aListenersOne.length; i++)
-                aCollection.add(aListenersOne[i])
-
-            assert.strictEqual(Object.isFrozen(aCollection.entries(aListenersTwo)), true)
         })
         
     })

@@ -190,7 +190,7 @@ emitter.on('foo', data => console.log(data), { priority: 2 });
 console.log(emitter.rawListeners('foo'));
 ```
 
-The returned collection same as its elements are frozen and any attempt to change them will fail, either silently or by throwing a error.
+The returned collection contain frozen elements and any attempt to change them will fail, either silently or by throwing a error.
 
 ### emitter.listenerCount(eventName) 
 

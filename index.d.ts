@@ -1,8 +1,5 @@
 declare module "@vikhola/events" {
 
-    type NewEventListener = () => any
-    type RemoveEventListener = (eventName: string | symbol, listener: Listener) => any
-
     type Listener = (this: EventEmitter, ...args: any[]) => any
     type RawListener = { priority: number; listener: Listener; (emitter: EventEmitter, args: any[]): any } 
     type ListenerOptions = { once?: boolean, signal?: AbortSignal, priority?: number }
